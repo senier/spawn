@@ -362,14 +362,19 @@ package body Spawn.Processes.Monitor is
       pid    : constant Interfaces.C.int :=
         Posix.waitpid (-1, status'Unchecked_Access, Posix.WNOHANG);
 
-      Cursor  : constant Process_Maps.Cursor := Map.Find (pid);
-      Process : Process_Access;
+      Signaled : constant Boolean := ((status and 16#7F#) + 1) / 2 > 0;
+      Cursor   : constant Process_Maps.Cursor := Map.Find (pid);
+      Process  : Process_Access;
    begin
       if Process_Maps.Has_Element (Cursor) then
          Process := Process_Maps.Element (Cursor);
          Process.Exit_Code := Integer (status / 256 and 16#FF#);
          Process.Status := Not_Running;
-         Process.Listener.Finished (Process.Exit_Code);
+         if Signaled then
+            Process.Listener.Error_Occurred (Integer (status and 16#7F#));
+         else
+            Process.Listener.Finished (Process.Exit_Code);
+         end if;
       end if;
    end Check_Children;
 
